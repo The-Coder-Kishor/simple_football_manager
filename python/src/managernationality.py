@@ -324,9 +324,6 @@ def retrieveRecord(con, cur):
                 print(f"Nationalities: {nationalities}")
             else:
                 print("Manager not found.")
-        
-        if not cur.fetchall():
-            print("No records found.")
     
     except pymysql.Error as e:
         print(f"Error retrieving manager nationality records: {e}")
