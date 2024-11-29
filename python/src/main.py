@@ -254,7 +254,7 @@ def main():
                     print("13. PlaysIn")
                     print("14. YouthPlayer")
                     print("15. Captain")
-                    print("16. LoadPlayer")
+                    print("16. LoanPlayer")
                     print("17. InjuryRecord")
                     print("18. RecoveryPrediction")
                     print("19. PlayerMatchPerformance")
