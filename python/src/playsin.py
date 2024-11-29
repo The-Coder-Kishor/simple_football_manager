@@ -247,10 +247,17 @@ def updateRecord(con, cur):
 
 def retrieveRecord(con, cur):
     """
-    Retrieve plays-in records with option for all records or specific search
+    Retrieve plays-in records with three options:
+    1. All records
+    2. Records by Club
+    3. Records by League Name and Year
     """
     try:
-        choice = input("Retrieve (A)ll or (S)pecific records? ").upper()
+        print("\nRetrieval Options:")
+        print("1. (A)ll records")
+        print("2. Records by (C)lub")
+        print("3. Records by (L)eague name and year")
+        choice = input("\nEnter your choice (A/C/L): ").upper()
 
         if choice == 'A':
             # Retrieve all records
@@ -283,45 +290,28 @@ def retrieveRecord(con, cur):
                     str(result['Points'])
                 ))
 
-        elif choice == 'S':
-            # Get search criteria from user
+        elif choice == 'C':
+            # Get club name from user
             club_name = input("Enter club name (or part of name): ")
-            league_name = input("Enter league name (or part of name): ")
-            year_input = input("Enter year (press enter for all years): ")
 
-            # Construct the query based on input
             query = """
-            SELECT c.ClubID, c.ClubName,
-                   l.LeagueID, l.LeagueName, l.LeagueYear,
+            SELECT c.ClubName,
+                   l.LeagueName, l.LeagueYear,
                    p.Points
             FROM PlaysIn p
             JOIN Clubs c ON p.ClubID = c.ClubID
             JOIN Leagues l ON p.LeagueID = l.LeagueID
             WHERE c.ClubName LIKE %s
-            AND l.LeagueName LIKE %s
+            ORDER BY l.LeagueYear DESC, l.LeagueName
             """
-            params = [f"%{club_name}%", f"%{league_name}%"]
-
-            if year_input:
-                try:
-                    year = int(year_input)
-                    query += " AND l.LeagueYear = %s"
-                    params.append(year)
-                except ValueError:
-                    print("Invalid year format. Showing results for all years.")
-
-            query += " ORDER BY l.LeagueYear DESC, c.ClubName"
-            
-            # Execute query
-            cur.execute(query, params)
+            cur.execute(query, (f"%{club_name}%",))
             results = cur.fetchall()
 
             if not results:
-                print("No matching records found.")
+                print(f"No records found for clubs matching '{club_name}'")
                 return
 
-            # Display results
-            print("\nMatching Records:")
+            print(f"\nRecords for clubs matching '{club_name}':")
             print("\n{:<30} {:<30} {:<10} {:<10}".format(
                 "Club Name", "League Name", "Year", "Points"))
             print("-" * 80)
@@ -334,8 +324,48 @@ def retrieveRecord(con, cur):
                     str(result['Points'])
                 ))
 
+        elif choice == 'L':
+            # Get league name and year
+            league_name = input("Enter league name (or part of name): ")
+            while True:
+                try:
+                    league_year = int(input("Enter league year: "))
+                    break
+                except ValueError:
+                    print("Please enter a valid year (e.g., 2023)")
+
+            query = """
+            SELECT c.ClubName,
+                   l.LeagueName, l.LeagueYear,
+                   p.Points
+            FROM PlaysIn p
+            JOIN Clubs c ON p.ClubID = c.ClubID
+            JOIN Leagues l ON p.LeagueID = l.LeagueID
+            WHERE l.LeagueName LIKE %s
+            AND l.LeagueYear = %s
+            ORDER BY p.Points DESC, c.ClubName
+            """
+            cur.execute(query, (f"%{league_name}%", league_year))
+            results = cur.fetchall()
+
+            if not results:
+                print(f"No records found for league '{league_name}' in year {league_year}")
+                return
+
+            print(f"\nStandings for {results[0]['LeagueName']} ({league_year}):")
+            print("\n{:<5} {:<30} {:<10}".format(
+                "Pos", "Club Name", "Points"))
+            print("-" * 45)
+            
+            for pos, result in enumerate(results, 1):
+                print("{:<5} {:<30} {:<10}".format(
+                    pos,
+                    result['ClubName'],
+                    str(result['Points'])
+                ))
+
         else:
-            print("Invalid choice. Please enter 'A' for all records or 'S' for specific search.")
+            print("Invalid choice. Please enter 'A' for all records, 'C' for club search, or 'L' for league search.")
 
     except pymysql.Error as e:
         print(f"Error retrieving records: {e}")
