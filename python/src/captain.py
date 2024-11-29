@@ -6,43 +6,20 @@ def addRecord(con, cur):
     Add a new captain record
     """
     try:
-        # Show available players who are not already captains
-        print("Available Players (Not currently captains):")
-        cur.execute("""
-            SELECT p.PlayerID, p.PlayerName, c.ClubName, 
-                   p.OverallRating
-            FROM Players p
-            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
-            WHERE p.PlayerID NOT IN (SELECT PlayerID FROM Captain)
-            ORDER BY p.PlayerName
-        """)
-        players = cur.fetchall()
-        
-        if not players:
-            print("No eligible players found for captain registration.")
-            return
-        
-        for player in players:
-            club = player['ClubName'] if player['ClubName'] else 'No Club'
-            print(f"\nID: {player['PlayerID']}, Name: {player['PlayerName']}")
-            print(f"Club: {club}")
-            print(f"Overall Rating: {player['OverallRating']}")
-        
-        # Get player ID
+        # Get player name
         while True:
-            try:
-                player_id = int(input("\nEnter Player ID: "))
-                # Verify player exists and is not already a captain
-                cur.execute("""
-                    SELECT PlayerID FROM Players 
-                    WHERE PlayerID = %s 
-                    AND PlayerID NOT IN (SELECT PlayerID FROM Captain)
-                """, (player_id,))
-                if cur.fetchone():
-                    break
-                print("Invalid Player ID or player is already registered as captain.")
-            except ValueError:
-                print("Please enter a valid integer Player ID.")
+            player_name = input("\nEnter Player Name: ")
+            # Verify player exists and is not already a captain
+            cur.execute("""
+                SELECT PlayerID FROM Players 
+                WHERE PlayerName = %s 
+                AND PlayerID NOT IN (SELECT PlayerID FROM Captain)
+            """, (player_name,))
+            player = cur.fetchone()
+            if player:
+                player_id = player['PlayerID']
+                break
+            print("Invalid Player Name or player is already registered as captain.")
         
         # Winning rate validation (0-100%)
         while True:
@@ -89,44 +66,31 @@ def deleteRecord(con, cur):
     Delete a captain record
     """
     try:
-        # Show current captains
-        print("Current Captains:")
+        # Get player name to delete
+        player_name = input("\nEnter Player Name to remove from captaincy: ")
+        
+        # Get PlayerID from name
         cur.execute("""
-            SELECT c.PlayerID, p.PlayerName, cl.ClubName,
-                   c.CaptainWinningRate, c.CaptainBonus
-            FROM Captain c
-            JOIN Players p ON c.PlayerID = p.PlayerID
-            LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
-            ORDER BY p.PlayerName
-        """)
-        captains = cur.fetchall()
+            SELECT PlayerID FROM Players 
+            WHERE PlayerName = %s
+        """, (player_name,))
+        player = cur.fetchone()
         
-        for captain in captains:
-            club = captain['ClubName'] if captain['ClubName'] else 'No Club'
-            print(f"\nID: {captain['PlayerID']}, Name: {captain['PlayerName']}")
-            print(f"Club: {club}")
-            print(f"Winning Rate: {captain['CaptainWinningRate']}%")
-            print(f"Bonus: ${captain['CaptainBonus']:,.2f}")
-        
-        # Get player ID to delete
-        while True:
-            try:
-                player_id = int(input("\nEnter Player ID to remove from captaincy: "))
-                break
-            except ValueError:
-                print("Please enter a valid integer Player ID.")
+        if not player:
+            print("Player not found.")
+            return
         
         # SQL query to delete captain
         query = "DELETE FROM Captain WHERE PlayerID = %s"
         
         # Execute the query
-        cur.execute(query, (player_id,))
+        cur.execute(query, (player['PlayerID'],))
         
         if cur.rowcount > 0:
             con.commit()
-            print(f"Captain with ID {player_id} removed successfully!")
+            print(f"Captain {player_name} removed successfully!")
         else:
-            print(f"No captain found with ID {player_id}")
+            print(f"No captain found with name {player_name}")
     
     except pymysql.Error as e:
         con.rollback()
@@ -140,47 +104,22 @@ def updateRecord(con, cur):
     Update a captain record
     """
     try:
-        # Show current captains
-        print("Current Captains:")
-        cur.execute("""
-            SELECT c.PlayerID, p.PlayerName, cl.ClubName,
-                   c.CaptainWinningRate, c.CaptainBonus
-            FROM Captain c
-            JOIN Players p ON c.PlayerID = p.PlayerID
-            LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
-            ORDER BY p.PlayerName
-        """)
-        captains = cur.fetchall()
-        
-        for captain in captains:
-            club = captain['ClubName'] if captain['ClubName'] else 'No Club'
-            print(f"\nID: {captain['PlayerID']}, Name: {captain['PlayerName']}")
-            print(f"Club: {club}")
-            print(f"Winning Rate: {captain['CaptainWinningRate']}%")
-            print(f"Bonus: ${captain['CaptainBonus']:,.2f}")
-        
-        # Get player ID to update
+        # Get player name to update
         while True:
-            try:
-                player_id = int(input("\nEnter Player ID to update: "))
-                # Verify captain exists
-                cur.execute("SELECT * FROM Captain WHERE PlayerID = %s", (player_id,))
-                if cur.fetchone():
-                    break
-                print("No captain found with this ID.")
-            except ValueError:
-                print("Please enter a valid integer Player ID.")
+            player_name = input("\nEnter Player Name to update: ")
+            # Get PlayerID from name
+            cur.execute("""
+                SELECT p.PlayerID, c.* 
+                FROM Players p
+                JOIN Captain c ON p.PlayerID = c.PlayerID
+                WHERE p.PlayerName = %s
+            """, (player_name,))
+            current = cur.fetchone()
+            if current:
+                break
+            print("No captain found with this name.")
         
-        # Get current record details
-        cur.execute("""
-            SELECT c.*, p.PlayerName 
-            FROM Captain c
-            JOIN Players p ON c.PlayerID = p.PlayerID
-            WHERE c.PlayerID = %s
-        """, (player_id,))
-        current = cur.fetchone()
-        
-        print(f"\nUpdating captain record for {current['PlayerName']}")
+        print(f"\nUpdating captain record for {player_name}")
         print("Press Enter to keep current values:")
         
         # Winning rate update
@@ -220,7 +159,7 @@ def updateRecord(con, cur):
         
         if update_fields:
             # Add player ID to params
-            params.append(player_id)
+            params.append(current['PlayerID'])
             
             query = f"UPDATE Captain SET {', '.join(update_fields)} WHERE PlayerID = %s"
             
@@ -244,10 +183,15 @@ def retrieveRecord(con, cur):
     Retrieve captain records
     """
     try:
-        # Option to retrieve all or specific captain
-        choice = input("Retrieve (A)ll captains or (S)pecific captain? ").upper()
+        print("\nRetrieval Options:")
+        print("1. All Captains")
+        print("2. Search by Player Name")
+        print("3. Search by Club")
+        print("4. Search by League")
         
-        if choice == 'A':
+        choice = input("Enter your choice (1-4): ")
+        
+        if choice == '1':
             # Option to sort by winning rate or bonus
             sort_choice = input("Sort by (W)inning rate or (B)onus? ").upper()
             
@@ -260,25 +204,64 @@ def retrieveRecord(con, cur):
             
             query = f"""
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   p.Experience
+                   l.LeagueName, p.Experience
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
+            LEFT JOIN PlaysIn pi ON pi.ClubID = cl.ClubID
+            LEFT JOIN Leagues l ON pi.LeagueID = l.LeagueID
             ORDER BY {order_by}
             """
             cur.execute(query)
-        else:
-            # Get specific player ID
-            player_id = int(input("Enter Player ID: "))
+            
+        elif choice == '2':
+            player_name = input("Enter Player Name (or part of name): ")
             query = """
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   p.Experience
+                   l.LeagueName, p.Experience
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
-            WHERE c.PlayerID = %s
+            LEFT JOIN PlaysIn pi ON pi.ClubID = cl.ClubID
+            LEFT JOIN Leagues l ON pi.LeagueID = l.LeagueID
+            WHERE p.PlayerName LIKE %s
             """
-            cur.execute(query, (player_id,))
+            cur.execute(query, (f'%{player_name}%',))
+            
+        elif choice == '3':
+            club_name = input("\nEnter Club Name: ")
+            query = """
+            SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
+                   l.LeagueName, p.Experience
+            FROM Captain c
+            JOIN Players p ON c.PlayerID = p.PlayerID
+            LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
+            LEFT JOIN PlaysIn pi ON pi.ClubID = cl.ClubID
+            LEFT JOIN Leagues l ON pi.LeagueID = l.LeagueID
+            WHERE cl.ClubName LIKE %s
+            """
+            cur.execute(query, (f'%{club_name}%',))
+            
+        elif choice == '4':
+            # Show available leagues
+            cur.execute("SELECT DISTINCT LeagueName FROM Leagues ORDER BY LeagueName")
+            leagues = cur.fetchall()
+            print("\nAvailable Leagues:")
+            for league in leagues:
+                print(league['LeagueName'])
+            
+            league_name = input("\nEnter League Name: ")
+            query = """
+            SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
+                   l.LeagueName, p.Experience
+            FROM Captain c
+            JOIN Players p ON c.PlayerID = p.PlayerID
+            LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
+            LEFT JOIN PlaysIn pi ON pi.ClubID = cl.ClubID
+            LEFT JOIN Leagues l ON pi.LeagueID = l.LeagueID
+            WHERE l.LeagueName LIKE %s
+            """
+            cur.execute(query, (f'%{league_name}%',))
         
         # Fetch and display results
         results = cur.fetchall()
@@ -288,9 +271,9 @@ def retrieveRecord(con, cur):
         else:
             for captain in results:
                 print("\nCaptain Details:")
-                print(f"Player ID: {captain['PlayerID']}")
                 print(f"Name: {captain['PlayerName']}")
                 print(f"Club: {captain['ClubName'] if captain['ClubName'] else 'No Club'}")
+                print(f"League: {captain['LeagueName'] if captain['LeagueName'] else 'No League'}")
                 print(f"Overall Rating: {captain['OverallRating']}")
                 print(f"Experience: {captain['Experience']} years")
                 print(f"Winning Rate: {captain['CaptainWinningRate']}%")
@@ -300,6 +283,6 @@ def retrieveRecord(con, cur):
     except pymysql.Error as e:
         print(f"Error retrieving captain records: {e}")
     except ValueError:
-        print("Please enter valid numeric values.")
+        print("Please enter valid values.")
     except Exception as e:
         print(f"Unexpected error: {e}")
