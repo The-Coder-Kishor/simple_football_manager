@@ -255,7 +255,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific player
-        choice = input("Retrieve (A)ll or (S)pecific player? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub? ").upper()
         
         if choice == 'A':
             # Retrieve all players with related information
@@ -268,7 +268,7 @@ def retrieveRecord(con, cur):
             LEFT JOIN Players m ON p.MentorID = m.PlayerID
             """
             cur.execute(query)
-        else:
+        elif choice == 'S':
             # Search by player name
             player_name = input("Enter Player Name (or part of name): ")
             query = """
@@ -282,6 +282,25 @@ def retrieveRecord(con, cur):
             """
             cur.execute(query, (f'%{player_name}%',))
         
+        elif choice == 'C':
+            # Take club name as input
+            club_name = input("Enter Club Name to retrieve players: ")
+        
+            # Retrieve all players with related information for the specified club
+            query = """
+            SELECT p.*, 
+                   c.ClubName,
+                   m.PlayerName as MentorName
+            FROM Players p 
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID 
+            LEFT JOIN Players m ON p.MentorID = m.PlayerID
+            WHERE c.ClubName LIKE %s
+            """
+            cur.execute(query, ('%' + club_name + '%',))
+            
+        else: 
+            print('invalid option')
+            return
         # Fetch and display results
         results = cur.fetchall()
         
