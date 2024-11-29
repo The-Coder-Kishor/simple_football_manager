@@ -255,7 +255,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific player
-        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub or Average (R)ating of player per club? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub or Average (R)ating of player per club or (H)ighest or (L)owest? ").upper()
         
         if choice == 'A':
             # Retrieve all players with related information
@@ -334,6 +334,48 @@ def retrieveRecord(con, cur):
                 print(f"Average Rating of Players for Club '{club_name}':")
                 for record in results:
                     print(f"Club: {record['ClubName']}, Average Rating: {record['AverageRating']:.2f}")
+            return
+        elif choice == 'H':
+            query = """
+            SELECT c.ClubName, p.PlayerName, p.overallRating
+            FROM Players p
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE p.overallRating = (
+                SELECT MAX(p2.overallRating)
+                FROM Players p2
+                WHERE p2.ClubID = p.ClubID
+            )
+            ORDER BY c.ClubName, p.PlayerName
+            """
+            cur.execute(query)
+            results = cur.fetchall()
+            if not results:
+                print("No records found.")
+            else:
+                print("Highest Rated Player per Club:")
+                for record in results:
+                    print(f"Club: {record['ClubName']}, Player: {record['PlayerName']}, Rating: {record['overallRating']}")
+            return
+        elif choice == 'L':
+            query = """
+            SELECT c.ClubName, p.PlayerName, p.overallRating
+            FROM Players p
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE p.overallRating = (
+                SELECT MIN(p2.overallRating)
+                FROM Players p2
+                WHERE p2.ClubID = p.ClubID
+            )
+            ORDER BY c.ClubName, p.PlayerName
+            """
+            cur.execute(query)
+            results = cur.fetchall()
+            if not results:
+                print("No records found.")
+            else:
+                print("Lowest Rated Player per Club:")
+                for record in results:
+                    print(f"Club: {record['ClubName']}, Player: {record['PlayerName']}, Rating: {record['overallRating']}")
             return
 
             
