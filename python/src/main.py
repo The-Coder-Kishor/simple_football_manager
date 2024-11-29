@@ -44,21 +44,21 @@ def addRecord(ch2, con, cur):
         5: players,
         6: leagues,
         7: leaguedetails,
-        9: matchx,
-        10: contracts,
-        11: playernationality,
-        12: playerlanguagespoken,
-        13: playerpositionsplayed,
-        14: playsin,
-        15: youthplayer,
-        16: captain,
-        17: loanplayer,
-        18: injuryrecord,
-        19: recoveryprediction,
-        20: playermatchperformance,
-        21: managermatchperformance,
-        22: managerachievements,
-        23: managernationality
+        8: matchx,
+        9: contracts,
+        19: playernationality,
+        11: playerlanguagespoken,
+        12: playerpositionsplayed,
+        13: playsin,
+        14: youthplayer,
+        15: captain,
+        16: loanplayer,
+        17: injuryrecord,
+        18: recoveryprediction,
+        19: playermatchperformance,
+        20: managermatchperformance,
+        21: managerachievements,
+        22: managernationality
     }
     
     if ch2 in table_modules:
@@ -208,7 +208,7 @@ def main():
                 host='localhost',
                 port=3306,
                 user="root",
-                password="678007",
+                password="root",
                 db='Football',
                 cursorclass=pymysql.cursors.DictCursor
             )

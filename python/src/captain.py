@@ -10,7 +10,7 @@ def addRecord(con, cur):
         print("Available Players (Not currently captains):")
         cur.execute("""
             SELECT p.PlayerID, p.PlayerName, c.ClubName, 
-                   p.OverallRating, p.Experience
+                   p.OverallRating
             FROM Players p
             LEFT JOIN Clubs c ON p.ClubID = c.ClubID
             WHERE p.PlayerID NOT IN (SELECT PlayerID FROM Captain)
