@@ -295,8 +295,18 @@ def retrieveRecord(con, cur):
         print("Retrieve contracts by:")
         print("1. Player Name")
         print("2. Club Name")
+        print("3. Generate Wage Bill for a club")
         choice = input("Enter choice: ")
-        
+        if choice == '3':
+            # Get club name and validate
+            print("Enter Club Name: ")
+            club_name = input()
+            cur.execute("SELECT SUM(Salary) FROM Clubs INNER JOIN Contracts ON Clubs.ClubID = Contracts.ClubID WHERE ClubName = %s", (club_name,))
+            wage_bill = cur.fetchone()
+            print(f"Wage bill for {club_name}: ${wage_bill['SUM(Salary)']:,.2f}")
+            # assuming captaincy bonus is included in salary in contract.
+            return
+
         if choice == '1':
             # Get player name and validate
             player_name = input("Enter Player Name: ")
