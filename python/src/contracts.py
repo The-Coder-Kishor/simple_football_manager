@@ -291,7 +291,7 @@ def retrieveRecord(con, cur):
     Retrieve league records with options for all or specific records
     """
     try:
-        choice = input("Retrieve (A)ll or (S)pecific records? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific records or (T)ransfer targets? ").upper()
 
         base_query = """
         SELECT l.*,
@@ -339,6 +339,18 @@ def retrieveRecord(con, cur):
             else:
                 print("No search criteria provided. Showing all records.")
                 cur.execute(base_query)
+        elif choice == 'T':
+             # Retrieve transfer targets (players with contracts < 2 years left)
+            query = """
+            SELECT p.PlayerID, p.PlayerName, p.ClubID, c.ClubName, p.ContractEndDate,
+                   DATEDIFF(p.ContractEndDate, CURDATE()) as DaysLeft
+            FROM Players p
+            JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE DATEDIFF(p.ContractEndDate, CURDATE()) < 730
+            ORDER BY DaysLeft ASC
+            """
+            cur.execute(query)
+
         else:
             print("Invalid choice. Please select 'A' or 'S'.")
             return
