@@ -255,7 +255,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific player
-        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub or Average (R)ating of player per club? ").upper()
         
         if choice == 'A':
             # Retrieve all players with related information
@@ -297,6 +297,45 @@ def retrieveRecord(con, cur):
             WHERE c.ClubName LIKE %s
             """
             cur.execute(query, ('%' + club_name + '%',))
+        elif choice == 'C':
+            # Search by club name
+            club_name = input("Enter Club Name (or part of name): ")
+            query = """
+            SELECT p.*, 
+                   c.ClubName,
+                   m.PlayerName as MentorName
+            FROM Players p 
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID 
+            LEFT JOIN Players m ON p.MentorID = m.PlayerID
+            WHERE c.ClubName LIKE %s
+            """
+            cur.execute(query, (f'%{club_name}%',))
+        elif choice == 'R':
+            # Ask for the club name
+            club_name = input("Enter Club Name (or part of name) to retrieve average rating: ")
+        
+            # Retrieve average rating of players for the specified club
+            query = """
+            SELECT c.ClubName, AVG(p.overallRating) as AverageRating
+            FROM Players p
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE c.ClubName LIKE %s
+            GROUP BY c.ClubName
+            ORDER BY AverageRating DESC
+            """
+            cur.execute(query, (f'%{club_name}%',))
+        
+            # Fetch and display results
+            results = cur.fetchall()
+        
+            if not results:
+                print(f"No records found for club '{club_name}'.")
+            else:
+                print(f"Average Rating of Players for Club '{club_name}':")
+                for record in results:
+                    print(f"Club: {record['ClubName']}, Average Rating: {record['AverageRating']:.2f}")
+            return
+
             
         else: 
             print('invalid option')
