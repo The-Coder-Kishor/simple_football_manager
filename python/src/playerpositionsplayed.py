@@ -255,7 +255,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific player positions
-        choice = input("Retrieve positions for (A)ll players or (S)pecific player? ").upper()
+        choice = input("Retrieve positions for (A)ll players or (S)pecific position? ").upper()
         
         if choice == 'A':
             # Retrieve all player positions
@@ -269,24 +269,19 @@ def retrieveRecord(con, cur):
             """
             cur.execute(query)
         else:
-            # Get player ID
-            while True:
-                try:
-                    player_id = int(input("Enter Player ID: "))
-                    break
-                except ValueError:
-                    print("Please enter a valid integer Player ID.")
-            
-            # Retrieve specific player's positions
+            # Get position
+            position = input("Enter Position: ")
+
+            # Retrieve players for the specified position
             query = """
             SELECT p.PlayerID, p.PlayerName,
-                   GROUP_CONCAT(pp.Position ORDER BY pp.Position) as Positions
+                GROUP_CONCAT(pp.Position ORDER BY pp.Position) as Positions
             FROM Players p
             LEFT JOIN PlayerPositionsPlayed pp ON p.PlayerID = pp.PlayerID
-            WHERE p.PlayerID = %s
+            WHERE pp.Position = %s
             GROUP BY p.PlayerID, p.PlayerName
             """
-            cur.execute(query, (player_id,))
+            cur.execute(query, (position,))
         
         # Fetch and display results
         results = cur.fetchall()
