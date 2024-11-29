@@ -288,96 +288,67 @@ def updateRecord(con, cur):
 
 def retrieveRecord(con, cur):
     """
-    Retrieve league records with options for all or specific records
+    Retrieve contracts for a specific player or club
     """
     try:
-        choice = input("Retrieve (A)ll or (S)pecific records or (T)ransfer targets? ").upper()
-
-        base_query = """
-        SELECT l.*,
-               c.ClubName as WinningClubName,
-               ts.PlayerName as TopScorerName,
-               ta.PlayerName as TopAssistName,
-               tc.PlayerName as TopCleanSheetName,
-               ld.Nation,
-               ld.NoOfTeams,
-               ld.PromotionLevel,
-               ld.RelegationLevel
-        FROM Leagues l
-        LEFT JOIN Clubs c ON l.WinningClubID = c.ClubID
-        LEFT JOIN Players ts ON l.TopScorerID = ts.PlayerID
-        LEFT JOIN Players ta ON l.TopAssistID = ta.PlayerID
-        LEFT JOIN Players tc ON l.TopCleanSheetID = tc.PlayerID
-        LEFT JOIN LeagueDetails ld ON l.LeagueName = ld.LeagueName
-        """
-
-        if choice == 'A':
-            # Retrieve all records
-            cur.execute(base_query)
-        elif choice == 'S':
-            # Get search criteria
-            league_name = input("Enter League Name (press enter to skip): ").strip()
-            league_year = input("Enter League Year (press enter to skip): ").strip()
-
-            where_clauses = []
-            params = []
-
-            if league_name:
-                where_clauses.append("l.LeagueName = %s")
-                params.append(league_name)
-            if league_year:
-                try:
-                    year = int(league_year)
-                    where_clauses.append("l.LeagueYear = %s")
-                    params.append(year)
-                except ValueError:
-                    print("Invalid year format. Ignoring year criteria.")
-
-            if where_clauses:
-                query = base_query + " WHERE " + " AND ".join(where_clauses)
-                cur.execute(query, params)
+        # Get user choice
+        print("Retrieve contracts by:")
+        print("1. Player Name")
+        print("2. Club Name")
+        choice = input("Enter choice: ")
+        
+        if choice == '1':
+            # Get player name and validate
+            player_name = input("Enter Player Name: ")
+            player_id = find_unique_player_by_name(cur, player_name)
+            if not player_id:
+                return
+            
+            # Retrieve contracts for player
+            cur.execute("""
+                SELECT * FROM Contracts 
+                WHERE PlayerID = %s
+            """, (player_id,))
+            
+            contracts = cur.fetchall()
+            if contracts:
+                print(f"Contracts for player: {player_name}")
+                for contract in contracts:
+                    print(f"Contract ID: {contract['ContractID']}, Club: {contract['ClubID']}, "
+                          f"Start Date: {contract['StartDate']}, End Date: {contract['EndDate']}, "
+                          f"Salary: ${contract['Salary']:,.2f}, Validity: {contract['Validity']}")
             else:
-                print("No search criteria provided. Showing all records.")
-                cur.execute(base_query)
-        elif choice == 'T':
-             # Retrieve transfer targets (players with contracts < 2 years left)
-            query = """
-            SELECT p.PlayerID, p.PlayerName, p.ClubID, c.ClubName, p.ContractEndDate,
-                   DATEDIFF(p.ContractEndDate, CURDATE()) as DaysLeft
-            FROM Players p
-            JOIN Clubs c ON p.ClubID = c.ClubID
-            WHERE DATEDIFF(p.ContractEndDate, CURDATE()) < 730
-            ORDER BY DaysLeft ASC
-            """
-            cur.execute(query)
-
+                print(f"No contracts found for player: {player_name}")
+        
+        elif choice == '2':
+            # Get club name and validate
+            club_name = input("Enter Club Name: ")
+            club_id = find_unique_club_by_name(cur, club_name)
+            if not club_id:
+                return
+            
+            # Retrieve contracts for club
+            cur.execute("""
+                SELECT * FROM Contracts Left Join Players ON Contracts.PlayerID = Players.PlayerID 
+                WHERE Contracts.ClubID = %s
+            """, (club_id,))
+            
+            contracts = cur.fetchall()
+            if contracts:
+                print(f"Contracts for club: {club_name}")
+                for contract in contracts:
+                    print(f"Contract ID: {contract['ContractID']}, Player: {contract['PlayerName']}, "
+                          f"Start Date: {contract['StartDate']}, End Date: {contract['EndDate']}, "
+                          f"Salary: ${contract['Salary']:,.2f}, Validity: {contract['Validity']}")
+            else:
+                print(f"No contracts found for club: {club_name}")
+        
         else:
-            print("Invalid choice. Please select 'A' or 'S'.")
-            return
-
-        # Fetch and display results
-        results = cur.fetchall()
-
-        if not results:
-            print("No leagues found matching the criteria.")
-        else:
-            print(f"\nFound {len(results)} league(s):")
-            for league in results:
-                print("\n" + "="*50)
-                print("League Details:")
-                print(f"League ID: {league['LeagueID']}")
-                print(f"Name: {league['LeagueName']}")
-                print(f"Year: {league['LeagueYear']}")
-                print(f"Nation: {league['Nation']}")
-                print(f"Number of Teams: {league['NoOfTeams']}")
-                print(f"Promotion Level: {league['PromotionLevel']}")
-                print(f"Relegation Level: {league['RelegationLevel']}")
-                print(f"Winning Club: {league['WinningClubName'] if league['WinningClubName'] else 'Not Set'}")
-                print(f"Top Scorer: {league['TopScorerName'] if league['TopScorerName'] else 'Not Set'}")
-                print(f"Top Assist: {league['TopAssistName'] if league['TopAssistName'] else 'Not Set'}")
-                print(f"Top Clean Sheet: {league['TopCleanSheetName'] if league['TopCleanSheetName'] else 'Not Set'}")
-
+            print("Invalid choice. Please enter 1 or 2.")
+    
     except pymysql.Error as e:
-        print(f"Error retrieving league records: {e}")
+        con.rollback()
+        print(f"Error retrieving contract records: {e}")
     except Exception as e:
+        con.rollback()
         print(f"Unexpected error: {e}")
