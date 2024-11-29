@@ -288,7 +288,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific club
-        choice = input("Retrieve (A)ll or (S)pecific club? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific club or by (B)udget? ").upper()
         
         if choice == 'A':
             # Retrieve all clubs with related information
@@ -299,7 +299,7 @@ def retrieveRecord(con, cur):
             LEFT JOIN Managers m ON c.ManagerID = m.ManagerID
             """
             cur.execute(query)
-        else:
+        elif choice=='S':
             # Retrieve specific club by name
             club_name = input("Enter Club Name (or part of name): ")
             query = """
@@ -310,6 +310,18 @@ def retrieveRecord(con, cur):
             WHERE c.ClubName LIKE %s
             """
             cur.execute(query, (f'%{club_name}%',))
+        elif choice=='B':
+                        # Retrieve clubs by budget range
+            min_budget = float(input("Enter minimum budget: "))
+            max_budget = float(input("Enter maximum budget: "))
+            query = """
+            SELECT c.*, s.StadiumName, s.City as StadiumCity, m.ManagerName 
+            FROM Clubs c 
+            LEFT JOIN Stadiums s ON c.HomeStadiumID = s.StadiumID 
+            LEFT JOIN Managers m ON c.ManagerID = m.ManagerID 
+            WHERE c.Budget BETWEEN %s AND %s
+            """
+            cur.execute(query, (min_budget, max_budget))
         
         # Fetch and display results
         results = cur.fetchall()
