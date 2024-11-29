@@ -208,7 +208,7 @@ def main():
                 host='localhost',
                 port=3306,
                 user="root",
-                password="root",
+                password="678007",
                 db='Football',
                 cursorclass=pymysql.cursors.DictCursor
             )
@@ -238,8 +238,8 @@ def main():
                     
                     ch1 = int(input("Enter choice> "))
 
-                    if ch1 == 5:
-                        break
+                    if ch1 >= 5:
+                        exit()
 
                     # Table selection menu
                     print("\nSelect Table to Operate on")
