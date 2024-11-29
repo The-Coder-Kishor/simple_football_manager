@@ -3,11 +3,8 @@ import pymysql
 from datetime import datetime
 
 def addRecord(con, cur):
-    """
-    Add a new match record
-    """
     try:
-        # Match date validation
+        # Get match date
         while True:
             match_date = input("Enter Match Date (YYYY-MM-DD): ")
             try:
@@ -16,7 +13,7 @@ def addRecord(con, cur):
             except ValueError:
                 print("Please enter a valid date in YYYY-MM-DD format.")
         
-        # Goals validation
+        # Get goals with validation
         while True:
             try:
                 home_goals = int(input("Enter Home Team Goals: "))
@@ -24,8 +21,8 @@ def addRecord(con, cur):
                     break
                 print("Goals cannot be negative.")
             except ValueError:
-                print("Please enter a valid integer for goals.")
-        
+                print("Please enter a valid number for goals.")
+
         while True:
             try:
                 away_goals = int(input("Enter Away Team Goals: "))
@@ -33,398 +30,419 @@ def addRecord(con, cur):
                     break
                 print("Goals cannot be negative.")
             except ValueError:
-                print("Please enter a valid integer for goals.")
-        
-        # Attendees validation
+                print("Please enter a valid number for goals.")
+
+        # Get attendees with validation
         while True:
             try:
                 no_of_attendees = int(input("Enter Number of Attendees: "))
                 if no_of_attendees >= 0:
                     break
-                print("Number of attendees cannot be negative.")
+                print("Attendees cannot be negative.")
             except ValueError:
-                print("Please enter a valid integer for attendees.")
+                print("Please enter a valid number for attendees.")
         
-        # Show available clubs for home and away team selection
-        print("\nAvailable Clubs:")
-        cur.execute("SELECT ClubID, ClubName FROM Clubs")
-        clubs = cur.fetchall()
-        for club in clubs:
-            print(f"ID: {club['ClubID']}, Name: {club['ClubName']}")
+        # Get team names
+        home_team = input("Enter Home Club Name: ")
+        away_team = input("Enter Away Club Name: ")
         
-        # Get home and away team IDs
+        # Get league details with year validation
+        league_name = input("Enter League Name: ")
         while True:
             try:
-                home_team_id = int(input("Enter Home Team ID: "))
-                away_team_id = int(input("Enter Away Team ID: "))
-                if home_team_id != away_team_id:
+                league_year = int(input("Enter League Year: "))
+                if 1800 <= league_year <= 2100:
                     break
-                print("Home and away team cannot be the same.")
+                print("Please enter a valid year between 1800 and 2100.")
             except ValueError:
-                print("Please enter valid integer IDs.")
+                print("Please enter a valid year.")
         
-        # Show available leagues
-        print("\nAvailable Leagues:")
-        cur.execute("SELECT LeagueID, LeagueName, LeagueYear FROM Leagues")
-        leagues = cur.fetchall()
-        for league in leagues:
-            print(f"ID: {league['LeagueID']}, Name: {league['LeagueName']}, Year: {league['LeagueYear']}")
+        # Get stadium name
+        stadium_name = input("Enter Stadium Name: ")
         
-        # Get league ID
-        while True:
-            try:
-                league_id = int(input("Enter League ID: "))
-                break
-            except ValueError:
-                print("Please enter a valid integer League ID.")
-        
-        # Show available stadiums
-        print("\nAvailable Stadiums:")
-        cur.execute("SELECT StadiumID, StadiumName, City FROM Stadiums")
-        stadiums = cur.fetchall()
-        for stadium in stadiums:
-            print(f"ID: {stadium['StadiumID']}, Name: {stadium['StadiumName']}, City: {stadium['City']}")
-        
-        # Get stadium ID
-        while True:
-            try:
-                stadium_id = int(input("Enter Stadium ID: "))
-                break
-            except ValueError:
-                print("Please enter a valid integer Stadium ID.")
-        
-        # SQL query to insert match
+        # Verify all inputs exist in database
+        try:
+            cur.execute("SELECT ClubID FROM Clubs WHERE ClubName = %s", (home_team,))
+            home_team_id = cur.fetchone()['ClubID']
+            
+            cur.execute("SELECT ClubID FROM Clubs WHERE ClubName = %s", (away_team,))
+            away_team_id = cur.fetchone()['ClubID']
+            
+            cur.execute("SELECT LeagueID FROM Leagues WHERE LeagueName = %s AND LeagueYear = %s", 
+                       (league_name, league_year))
+            league_id = cur.fetchone()['LeagueID']
+            
+            cur.execute("SELECT StadiumID FROM Stadiums WHERE StadiumName = %s", (stadium_name,))
+            stadium_id = cur.fetchone()['StadiumID']
+        except:
+            raise ValueError("One or more entered values do not exist in the database.")
+
+        # Insert query
         query = """
         INSERT INTO MatchX 
         (Date, HomeGoals, AwayGoals, NoOfAttendees, HomeTeamID, AwayTeamID, LeagueID, StadiumID) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         
-        # Execute the query
         cur.execute(query, (match_date, home_goals, away_goals, no_of_attendees, 
                           home_team_id, away_team_id, league_id, stadium_id))
         con.commit()
-        
         print("Match record added successfully!")
-    
+        
+    except ValueError as ve:
+        print(f"Error: {ve}")
     except pymysql.Error as e:
         con.rollback()
-        print(f"Error adding match record: {e}")
-    except Exception as e:
-        con.rollback()
-        print(f"Unexpected error: {e}")
+        print(f"Database Error: {e}")
 
 def deleteRecord(con, cur):
-    """
-    Delete a match record
-    """
     try:
-        # Retrieve and display matches to help user choose
-        print("Current Matches:")
-        cur.execute("""
-            SELECT m.MatchID, m.Date, 
-                   h.ClubName as HomeTeam, m.HomeGoals,
-                   a.ClubName as AwayTeam, m.AwayGoals,
-                   l.LeagueName
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            ORDER BY m.Date DESC
-        """)
-        matches = cur.fetchall()
-        
-        for match in matches:
-            print(f"ID: {match['MatchID']}, Date: {match['Date']}, "
-                  f"{match['HomeTeam']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeam']}, "
-                  f"League: {match['LeagueName']}")
-        
-        # Get match ID to delete
+        # Get match identifiers
+        home_team = input("Enter Home Club Name of the match to delete: ")
+        away_team = input("Enter Away Club Name of the match to delete: ")
+        league_name = input("Enter League Name: ")
         while True:
             try:
-                match_id = int(input("Enter Match ID to delete: "))
-                break
+                league_year = int(input("Enter League Year: "))
+                if 1800 <= league_year <= 2100:
+                    break
+                print("Please enter a valid year between 1800 and 2100.")
             except ValueError:
-                print("Please enter a valid integer Match ID.")
+                print("Please enter a valid year.")
+
+        # First find and display the match to confirm
+        query = """
+        SELECT m.MatchID, m.Date, 
+               h.ClubName as HomeTeam, m.HomeGoals,
+               a.ClubName as AwayTeam, m.AwayGoals,
+               l.LeagueName, l.LeagueYear,
+               s.StadiumName,
+               m.NoOfAttendees
+        FROM MatchX m
+        JOIN Clubs h ON m.HomeTeamID = h.ClubID
+        JOIN Clubs a ON m.AwayTeamID = a.ClubID
+        JOIN Leagues l ON m.LeagueID = l.LeagueID
+        JOIN Stadiums s ON m.StadiumID = s.StadiumID
+        WHERE h.ClubName = %s AND a.ClubName = %s 
+        AND l.LeagueName = %s AND l.LeagueYear = %s
+        """
         
-        # SQL query to delete match
-        query = "DELETE FROM MatchX WHERE MatchID = %s"
+        cur.execute(query, (home_team, away_team, league_name, league_year))
+        match = cur.fetchone()
         
-        # Execute the query
-        cur.execute(query, (match_id,))
+        if not match:
+            print("No match found with the given details.")
+            return
+
+        # Display match details for confirmation
+        print("\nMatch Details:")
+        print(f"Date: {match['Date']}")
+        print(f"Teams: {match['HomeTeam']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeam']}")
+        print(f"League: {match['LeagueName']} {match['LeagueYear']}")
+        print(f"Stadium: {match['StadiumName']}")
+        print(f"Attendance: {match['NoOfAttendees']}")
+
+        # Confirm deletion
+        confirm = input("\nAre you sure you want to delete this match? (yes/no): ").lower()
         
-        if cur.rowcount > 0:
+        if confirm == 'yes':
+            delete_query = "DELETE FROM MatchX WHERE MatchID = %s"
+            cur.execute(delete_query, (match['MatchID'],))
             con.commit()
-            print(f"Match with ID {match_id} deleted successfully!")
+            print("Match deleted successfully!")
         else:
-            print(f"No match found with ID {match_id}")
-    
+            print("Deletion cancelled.")
+
     except pymysql.Error as e:
         con.rollback()
-        print(f"Error deleting match record: {e}")
+        print(f"Database Error: {e}")
+    except ValueError as ve:
+        print(f"Error: {ve}")
     except Exception as e:
         con.rollback()
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
 
 def updateRecord(con, cur):
-    """
-    Update a match record
-    """
     try:
-        # Retrieve and display matches to help user choose
-        print("Current Matches:")
-        cur.execute("""
+        # Get match identifiers
+        home_team = input("Enter Home Club Name of the match to update: ")
+        away_team = input("Enter Away Club Name of the match to update: ")
+        league_name = input("Enter League Name: ")
+        while True:
+            try:
+                league_year = int(input("Enter League Year: "))
+                if 1800 <= league_year <= 2100:
+                    break
+                print("Please enter a valid year between 1800 and 2100.")
+            except ValueError:
+                print("Please enter a valid year.")
+
+        # Find the match
+        query = """
+        SELECT m.* FROM MatchX m
+        JOIN Clubs h ON m.HomeTeamID = h.ClubID
+        JOIN Clubs a ON m.AwayTeamID = a.ClubID
+        JOIN Leagues l ON m.LeagueID = l.LeagueID
+        WHERE h.ClubName = %s AND a.ClubName = %s 
+        AND l.LeagueName = %s AND l.LeagueYear = %s
+        """
+        cur.execute(query, (home_team, away_team, league_name, league_year))
+        match = cur.fetchone()
+        
+        if not match:
+            print("Match not found.")
+            return
+
+        # Get new values (empty input means no update)
+        print("\nEnter new values (press Enter to skip):")
+        
+        # Date
+        new_date = input("Enter new Match Date (YYYY-MM-DD): ")
+        if new_date:
+            try:
+                datetime.strptime(new_date, '%Y-%m-%d')
+            except ValueError:
+                print("Invalid date format. This field will not be updated.")
+                new_date = None
+
+        # Goals
+        new_home_goals = input("Enter new Home Team Goals: ")
+        if new_home_goals:
+            try:
+                new_home_goals = int(new_home_goals)
+                if new_home_goals < 0:
+                    print("Goals cannot be negative. This field will not be updated.")
+                    new_home_goals = None
+            except ValueError:
+                print("Invalid goals format. This field will not be updated.")
+                new_home_goals = None
+
+        new_away_goals = input("Enter new Away Team Goals: ")
+        if new_away_goals:
+            try:
+                new_away_goals = int(new_away_goals)
+                if new_away_goals < 0:
+                    print("Goals cannot be negative. This field will not be updated.")
+                    new_away_goals = None
+            except ValueError:
+                print("Invalid goals format. This field will not be updated.")
+                new_away_goals = None
+
+        # Attendees
+        new_attendees = input("Enter new Number of Attendees: ")
+        if new_attendees:
+            try:
+                new_attendees = int(new_attendees)
+                if new_attendees < 0:
+                    print("Attendees cannot be negative. This field will not be updated.")
+                    new_attendees = None
+            except ValueError:
+                print("Invalid attendees format. This field will not be updated.")
+                new_attendees = None
+
+        # New teams
+        new_home_team = input("Enter new Home Club Name (press Enter to skip): ")
+        new_away_team = input("Enter new Away Club Name (press Enter to skip): ")
+
+        # New league details
+        new_league_name = input("Enter new League Name (press Enter to skip): ")
+        new_league_year = input("Enter new League Year (press Enter to skip): ")
+        if new_league_year:
+            try:
+                new_league_year = int(new_league_year)
+                if not (1800 <= new_league_year <= 2100):
+                    print("Invalid year. League year will not be updated.")
+                    new_league_year = None
+            except ValueError:
+                print("Invalid year format. League year will not be updated.")
+                new_league_year = None
+
+        # New stadium
+        new_stadium = input("Enter new Stadium Name (press Enter to skip): ")
+
+        # Build update query dynamically
+        update_parts = []
+        params = []
+
+        if new_date:
+            update_parts.append("Date = %s")
+            params.append(new_date)
+        if new_home_goals is not None:
+            update_parts.append("HomeGoals = %s")
+            params.append(new_home_goals)
+        if new_away_goals is not None:
+            update_parts.append("AwayGoals = %s")
+            params.append(new_away_goals)
+        if new_attendees is not None:
+            update_parts.append("NoOfAttendees = %s")
+            params.append(new_attendees)
+
+        # Handle team updates
+        if new_home_team:
+            try:
+                cur.execute("SELECT ClubID FROM Clubs WHERE ClubName = %s", (new_home_team,))
+                new_home_team_id = cur.fetchone()['ClubID']
+                update_parts.append("HomeTeamID = %s")
+                params.append(new_home_team_id)
+            except:
+                print("Invalid home team name. This field will not be updated.")
+
+        if new_away_team:
+            try:
+                cur.execute("SELECT ClubID FROM Clubs WHERE ClubName = %s", (new_away_team,))
+                new_away_team_id = cur.fetchone()['ClubID']
+                update_parts.append("AwayTeamID = %s")
+                params.append(new_away_team_id)
+            except:
+                print("Invalid away team name. This field will not be updated.")
+
+        # Handle league update
+        if new_league_name and new_league_year:
+            try:
+                cur.execute("SELECT LeagueID FROM Leagues WHERE LeagueName = %s AND LeagueYear = %s", 
+                          (new_league_name, new_league_year))
+                new_league_id = cur.fetchone()['LeagueID']
+                update_parts.append("LeagueID = %s")
+                params.append(new_league_id)
+            except:
+                print("Invalid league details. League will not be updated.")
+
+        # Handle stadium update
+        if new_stadium:
+            try:
+                cur.execute("SELECT StadiumID FROM Stadiums WHERE StadiumName = %s", (new_stadium,))
+                new_stadium_id = cur.fetchone()['StadiumID']
+                update_parts.append("StadiumID = %s")
+                params.append(new_stadium_id)
+            except:
+                print("Invalid stadium name. Stadium will not be updated.")
+
+        if update_parts:
+            params.append(match['MatchID'])
+            update_query = f"UPDATE MatchX SET {', '.join(update_parts)} WHERE MatchID = %s"
+            cur.execute(update_query, params)
+            con.commit()
+            print("Match updated successfully!")
+        else:
+            print("No fields to update.")
+
+    except pymysql.Error as e:
+        con.rollback()
+        print(f"Database Error: {e}")
+    except Exception as e:
+        con.rollback()
+        print(f"Error: {e}")
+
+def retrieveRecord(con, cur):
+    try:
+        print("\nRetrieval Options:")
+        print("1. All Matches")
+        print("2. Based on Club")
+        print("3. Based on League name and Year")
+        print("4. Based on Both (Club and League)")
+        print("5. Based on Date")
+        
+        while True:
+            try:
+                choice = int(input("\nEnter your choice (1-6): "))
+                if 1 <= choice <= 6:
+                    break
+                print("Please enter a number between 1 and 6.")
+            except ValueError:
+                print("Please enter a valid number.")
+
+        base_query = """
             SELECT m.MatchID, m.Date, 
                    h.ClubName as HomeTeam, m.HomeGoals,
                    a.ClubName as AwayTeam, m.AwayGoals,
-                   l.LeagueName
+                   l.LeagueName, l.LeagueYear,
+                   s.StadiumName, s.City as StadiumCity,
+                   m.NoOfAttendees
             FROM MatchX m
             JOIN Clubs h ON m.HomeTeamID = h.ClubID
             JOIN Clubs a ON m.AwayTeamID = a.ClubID
             JOIN Leagues l ON m.LeagueID = l.LeagueID
-            ORDER BY m.Date DESC
-        """)
-        matches = cur.fetchall()
-        
-        for match in matches:
-            print(f"ID: {match['MatchID']}, Date: {match['Date']}, "
-                  f"{match['HomeTeam']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeam']}, "
-                  f"League: {match['LeagueName']}")
-        
-        # Get match ID to update
-        while True:
-            try:
-                match_id = int(input("Enter Match ID to update: "))
-                break
-            except ValueError:
-                print("Please enter a valid integer Match ID.")
-        
-        # Collect new details (allow skipping)
-        match_date = input("Enter new Match Date (YYYY-MM-DD) (press enter to skip): ")
-        if match_date:
+            JOIN Stadiums s ON m.StadiumID = s.StadiumID
+        """
+
+        if choice == 1:
+            # All matches
+            query = base_query + " ORDER BY m.Date DESC"
+            cur.execute(query)
+            
+        elif choice == 2:
+            # Based on Club
+            club_name = input("Enter Club Name: ")
+            query = base_query + " WHERE h.ClubName = %s OR a.ClubName = %s ORDER BY m.Date DESC"
+            cur.execute(query, (club_name, club_name))
+            
+        elif choice == 3:
+            # Based on League
+            league_name = input("Enter League Name: ")
             while True:
+                try:
+                    league_year = int(input("Enter League Year: "))
+                    if 1800 <= league_year <= 2100:
+                        break
+                    print("Please enter a valid year between 1800 and 2100.")
+                except ValueError:
+                    print("Please enter a valid year.")
+
+            query = base_query + " WHERE l.LeagueName = %s AND l.LeagueYear = %s ORDER BY m.Date DESC"
+            cur.execute(query, (league_name, league_year))
+
+        elif choice == 4:
+            # Based on both Club and League
+            club_name = input("Enter Club Name: ")
+            league_name = input("Enter League Name: ")
+            while True:
+                try:
+                    league_year = int(input("Enter League Year: "))
+                    if 1800 <= league_year <= 2100:
+                        break
+                    print("Please enter a valid year between 1800 and 2100.")
+                except ValueError:
+                    print("Please enter a valid year.")
+
+            query = base_query + """ 
+                WHERE (h.ClubName = %s OR a.ClubName = %s)
+                AND l.LeagueName = %s AND l.LeagueYear = %s 
+                ORDER BY m.Date DESC
+            """
+            cur.execute(query, (club_name, club_name, league_name, league_year))
+
+        else:
+            # Based on Date
+            while True:
+                match_date = input("Enter Match Date (YYYY-MM-DD): ")
                 try:
                     datetime.strptime(match_date, '%Y-%m-%d')
                     break
                 except ValueError:
-                    match_date = input("Please enter a valid date in YYYY-MM-DD format: ")
-        
-        home_goals = input("Enter new Home Team Goals (press enter to skip): ")
-        if home_goals:
-            while True:
-                try:
-                    home_goals = int(home_goals)
-                    if home_goals >= 0:
-                        break
-                    home_goals = input("Goals cannot be negative: ")
-                except ValueError:
-                    home_goals = input("Please enter a valid integer for goals: ")
-        
-        away_goals = input("Enter new Away Team Goals (press enter to skip): ")
-        if away_goals:
-            while True:
-                try:
-                    away_goals = int(away_goals)
-                    if away_goals >= 0:
-                        break
-                    away_goals = input("Goals cannot be negative: ")
-                except ValueError:
-                    away_goals = input("Please enter a valid integer for goals: ")
-        
-        no_of_attendees = input("Enter new Number of Attendees (press enter to skip): ")
-        if no_of_attendees:
-            while True:
-                try:
-                    no_of_attendees = int(no_of_attendees)
-                    if no_of_attendees >= 0:
-                        break
-                    no_of_attendees = input("Number of attendees cannot be negative: ")
-                except ValueError:
-                    no_of_attendees = input("Please enter a valid integer for attendees: ")
-        
-        # Show available related records
-        print("\nAvailable Clubs:")
-        cur.execute("SELECT ClubID, ClubName FROM Clubs")
-        clubs = cur.fetchall()
-        for club in clubs:
-            print(f"ID: {club['ClubID']}, Name: {club['ClubName']}")
-        
-        home_team_id = input("Enter new Home Team ID (press enter to skip): ")
-        away_team_id = input("Enter new Away Team ID (press enter to skip): ")
-        
-        if home_team_id and away_team_id:
-            if home_team_id == away_team_id:
-                print("Home and away team cannot be the same. Teams not updated.")
-                home_team_id = away_team_id = None
-        
-        print("\nAvailable Leagues:")
-        cur.execute("SELECT LeagueID, LeagueName, LeagueYear FROM Leagues")
-        leagues = cur.fetchall()
-        for league in leagues:
-            print(f"ID: {league['LeagueID']}, Name: {league['LeagueName']}, Year: {league['LeagueYear']}")
-        
-        league_id = input("Enter new League ID (press enter to skip): ")
-        
-        print("\nAvailable Stadiums:")
-        cur.execute("SELECT StadiumID, StadiumName, City FROM Stadiums")
-        stadiums = cur.fetchall()
-        for stadium in stadiums:
-            print(f"ID: {stadium['StadiumID']}, Name: {stadium['StadiumName']}, City: {stadium['City']}")
-        
-        stadium_id = input("Enter new Stadium ID (press enter to skip): ")
-        
-        # Prepare update query dynamically
-        update_fields = []
-        params = []
-        
-        if match_date:
-            update_fields.append("Date = %s")
-            params.append(match_date)
-        if home_goals is not None:
-            update_fields.append("HomeGoals = %s")
-            params.append(home_goals)
-        if away_goals is not None:
-            update_fields.append("AwayGoals = %s")
-            params.append(away_goals)
-        if no_of_attendees is not None:
-            update_fields.append("NoOfAttendees = %s")
-            params.append(no_of_attendees)
-        if home_team_id:
-            update_fields.append("HomeTeamID = %s")
-            params.append(int(home_team_id))
-        if away_team_id:
-            update_fields.append("AwayTeamID = %s")
-            params.append(int(away_team_id))
-        if league_id:
-            update_fields.append("LeagueID = %s")
-            params.append(int(league_id))
-        if stadium_id:
-            update_fields.append("StadiumID = %s")
-            params.append(int(stadium_id))
-        
-        # Add match ID to params
-        params.append(match_id)
-        
-        if update_fields:
-            query = f"UPDATE MatchX SET {', '.join(update_fields)} WHERE MatchID = %s"
+                    print("Please enter a valid date in YYYY-MM-DD format.")
             
-            # Execute the query
-            cur.execute(query, params)
-            con.commit()
-            
-            print("Match record updated successfully!")
-        else:
-            print("No updates specified.")
-    
-    except pymysql.Error as e:
-        con.rollback()
-        print(f"Error updating match record: {e}")
-    except Exception as e:
-        con.rollback()
-        print(f"Unexpected error: {e}")
-
-def retrieveRecord(con, cur):
-    """
-    Retrieve match records
-    """
-    try:
-        # Option to retrieve all or specific match
-        choice = input("Retrieve (A)ll or (S)pecific match or by (D)ate or by (L)eague? ").upper()
-        
-        if choice == 'A':
-            # Retrieve all matches with related information
-            query = """
-            SELECT m.*,
-                   h.ClubName as HomeTeamName,
-                   a.ClubName as AwayTeamName,
-                   l.LeagueName,
-                   s.StadiumName,
-                   s.City as StadiumCity
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            JOIN Stadiums s ON m.StadiumID = s.StadiumID
-            ORDER BY m.Date DESC
-            """
-            cur.execute(query)
-        elif choice=='S':
-            # Retrieve specific match
-            match_id = int(input("Enter Match ID: "))
-            query = """
-            SELECT m.*,
-                   h.ClubName as HomeTeamName,
-                   a.ClubName as AwayTeamName,
-                   l.LeagueName,
-                   s.StadiumName,
-                   s.City as StadiumCity
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            JOIN Stadiums s ON m.StadiumID = s.StadiumID
-            WHERE m.MatchID = %s
-            """
-            cur.execute(query, (match_id,))
-        elif choice == 'D':
-            # Retrieve matches by date
-            match_date = input("Enter Match Date (YYYY-MM-DD): ")
-            query = """
-            SELECT m.*,
-                   h.ClubName as HomeTeamName,
-                   a.ClubName as AwayTeamName,
-                   l.LeagueName,
-                   s.StadiumName,
-                   s.City as StadiumCity
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            JOIN Stadiums s ON m.StadiumID = s.StadiumID
-            WHERE m.Date = %s
-            ORDER BY m.Date DESC
-            """
+            query = base_query + " WHERE m.Date = %s ORDER BY m.Date DESC"
             cur.execute(query, (match_date,))
-        elif choice == 'L':
-            # Retrieve matches by league
-            league_name = input("Enter League Name: ")
-            query = """
-            SELECT m.*,
-                   h.ClubName as HomeTeamName,
-                   a.ClubName as AwayTeamName,
-                   l.LeagueName,
-                   s.StadiumName,
-                   s.City as StadiumCity
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            JOIN Stadiums s ON m.StadiumID = s.StadiumID
-            WHERE l.LeagueName LIKE %s
-            ORDER BY m.Date DESC
-            """
-            cur.execute(query, ('%' + league_name + '%',))
 
-        
         # Fetch and display results
         results = cur.fetchall()
         
         if not results:
-            print("No matches found.")
+            print("\nNo matches found.")
         else:
+            print("\nMatch Results:")
+            print("-" * 80)
             for match in results:
-                print("\nMatch Details:")
                 print(f"Match ID: {match['MatchID']}")
                 print(f"Date: {match['Date']}")
-                print(f"Score: {match['HomeTeamName']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeamName']}")
-                print(f"League: {match['LeagueName']}")
+                print(f"Match: {match['HomeTeam']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeam']}")
+                print(f"League: {match['LeagueName']} {match['LeagueYear']}")
                 print(f"Stadium: {match['StadiumName']} ({match['StadiumCity']})")
                 print(f"Attendance: {match['NoOfAttendees']:,}")
-                print("---")
-    
+                print("-" * 80)
+            print(f"Total matches found: {len(results)}")
+
     except pymysql.Error as e:
-        print(f"Error retrieving match records: {e}")
-    except ValueError:
-        print("Please enter a valid Match ID.")
+        print(f"Database Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
