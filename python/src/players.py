@@ -255,7 +255,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific player
-        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub or Average (R)ating of player per club or (H)ighest or (L)owest? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific player or by (C)lub or Average (R)ating of player per club or (H)ighest or (L)owest or (AV)verage age? ").upper()
         
         if choice == 'A':
             # Retrieve all players with related information
@@ -377,6 +377,24 @@ def retrieveRecord(con, cur):
                 for record in results:
                     print(f"Club: {record['ClubName']}, Player: {record['PlayerName']}, Rating: {record['overallRating']}")
             return
+        elif choice == 'AV':
+            query = """
+            SELECT c.ClubName, AVG(TIMESTAMPDIFF(YEAR, p.BirthDate, CURDATE())) as AverageAge
+            FROM Players p
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            GROUP BY c.ClubName
+            ORDER BY AverageAge DESC
+            """
+            cur.execute(query)
+            results = cur.fetchall()
+            if not results:
+                print("No records found.")
+            else:
+                print("Average Age of Players per Club:")
+                for record in results:
+                    print(f"Club: {record['ClubName']}, Average Age: {record['AverageAge']:.2f}")
+            return
+        
 
             
         else: 
