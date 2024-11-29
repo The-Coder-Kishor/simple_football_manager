@@ -329,7 +329,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific match
-        choice = input("Retrieve (A)ll or (S)pecific match? ").upper()
+        choice = input("Retrieve (A)ll or (S)pecific match or by (D)ate or by (L)eague? ").upper()
         
         if choice == 'A':
             # Retrieve all matches with related information
@@ -348,7 +348,7 @@ def retrieveRecord(con, cur):
             ORDER BY m.Date DESC
             """
             cur.execute(query)
-        else:
+        elif choice=='S':
             # Retrieve specific match
             match_id = int(input("Enter Match ID: "))
             query = """
@@ -366,6 +366,45 @@ def retrieveRecord(con, cur):
             WHERE m.MatchID = %s
             """
             cur.execute(query, (match_id,))
+        elif choice == 'D':
+            # Retrieve matches by date
+            match_date = input("Enter Match Date (YYYY-MM-DD): ")
+            query = """
+            SELECT m.*,
+                   h.ClubName as HomeTeamName,
+                   a.ClubName as AwayTeamName,
+                   l.LeagueName,
+                   s.StadiumName,
+                   s.City as StadiumCity
+            FROM MatchX m
+            JOIN Clubs h ON m.HomeTeamID = h.ClubID
+            JOIN Clubs a ON m.AwayTeamID = a.ClubID
+            JOIN Leagues l ON m.LeagueID = l.LeagueID
+            JOIN Stadiums s ON m.StadiumID = s.StadiumID
+            WHERE m.Date = %s
+            ORDER BY m.Date DESC
+            """
+            cur.execute(query, (match_date,))
+        elif choice == 'L':
+            # Retrieve matches by league
+            league_name = input("Enter League Name: ")
+            query = """
+            SELECT m.*,
+                   h.ClubName as HomeTeamName,
+                   a.ClubName as AwayTeamName,
+                   l.LeagueName,
+                   s.StadiumName,
+                   s.City as StadiumCity
+            FROM MatchX m
+            JOIN Clubs h ON m.HomeTeamID = h.ClubID
+            JOIN Clubs a ON m.AwayTeamID = a.ClubID
+            JOIN Leagues l ON m.LeagueID = l.LeagueID
+            JOIN Stadiums s ON m.StadiumID = s.StadiumID
+            WHERE l.LeagueName LIKE %s
+            ORDER BY m.Date DESC
+            """
+            cur.execute(query, ('%' + league_name + '%',))
+
         
         # Fetch and display results
         results = cur.fetchall()
