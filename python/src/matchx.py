@@ -13,24 +13,29 @@ def addRecord(con, cur):
             except ValueError:
                 print("Please enter a valid date in YYYY-MM-DD format.")
         
-        # Get goals with validation
-        while True:
+        # Get goals with validation (allowing NULL for invalid/blank input)
+        home_goals = None
+        away_goals = None
+        
+        home_input = input("Enter Home Team Goals: ").strip()
+        if home_input:
             try:
-                home_goals = int(input("Enter Home Team Goals: "))
-                if home_goals >= 0:
-                    break
-                print("Goals cannot be negative.")
+                home_goals = int(home_input)
+                if home_goals < 0:
+                    home_goals = None
+                    print("Negative goals not allowed, setting to NULL.")
             except ValueError:
-                print("Please enter a valid number for goals.")
+                print("Invalid input for home goals, setting to NULL.")
 
-        while True:
+        away_input = input("Enter Away Team Goals: ").strip()
+        if away_input:
             try:
-                away_goals = int(input("Enter Away Team Goals: "))
-                if away_goals >= 0:
-                    break
-                print("Goals cannot be negative.")
+                away_goals = int(away_input)
+                if away_goals < 0:
+                    away_goals = None
+                    print("Negative goals not allowed, setting to NULL.")
             except ValueError:
-                print("Please enter a valid number for goals.")
+                print("Invalid input for away goals, setting to NULL.")
 
         # Get attendees with validation
         while True:
