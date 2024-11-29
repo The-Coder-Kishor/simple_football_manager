@@ -223,7 +223,11 @@ def main():
             with con.cursor() as cur:
                 while True:
                     # Clear screen
-                    clear()
+                    print()
+                    print()
+                    print("Football Database")
+                    print("*****************")
+                    print("Main Menu")
 
                     # Main menu
                     print("1. Add a record")

@@ -6,42 +6,12 @@ def addRecord(con, cur):
     Add a new player match performance record
     """
     try:
-        # Show available matches
-        print("Recent Matches:")
-        cur.execute("""
-            SELECT m.MatchID, m.Date, 
-                   h.ClubName as HomeTeam, m.HomeGoals,
-                   a.ClubName as AwayTeam, m.AwayGoals,
-                   l.LeagueName
-            FROM MatchX m
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            JOIN Leagues l ON m.LeagueID = l.LeagueID
-            ORDER BY m.Date DESC
-            LIMIT 10
-        """)
-        matches = cur.fetchall()
-        
-        for match in matches:
-            print(f"\nMatch ID: {match['MatchID']}, Date: {match['Date']}")
-            print(f"{match['HomeTeam']} {match['HomeGoals']} - {match['AwayGoals']} {match['AwayTeam']}")
-            print(f"League: {match['LeagueName']}")
-        
         # Get match ID
-        while True:
-            try:
-                match_id = int(input("\nEnter Match ID: "))
-                # Verify match exists
-                cur.execute("SELECT MatchID FROM MatchX WHERE MatchID = %s", (match_id,))
-                if cur.fetchone():
-                    break
-                print("Invalid Match ID.")
-            except ValueError:
-                print("Please enter a valid integer Match ID.")
+        match_id = int(input("\nEnter Match ID: "))
         
         # Show available players for the teams involved in the match
         cur.execute("""
-            SELECT p.PlayerID, p.PlayerName, c.ClubName
+            SELECT p.PlayerName, c.ClubName
             FROM Players p
             JOIN Clubs c ON p.ClubID = c.ClubID
             WHERE c.ClubID IN (
@@ -55,91 +25,28 @@ def addRecord(con, cur):
         
         print("\nAvailable Players:")
         for player in players:
-            print(f"ID: {player['PlayerID']}, Name: {player['PlayerName']}, Club: {player['ClubName']}")
+            print(f"Name: {player['PlayerName']}, Club: {player['ClubName']}")
         
-        # Get player ID
-        while True:
-            try:
-                player_id = int(input("\nEnter Player ID: "))
-                # Verify player exists and belongs to one of the teams
-                if any(p['PlayerID'] == player_id for p in players):
-                    break
-                print("Invalid Player ID or player not from participating teams.")
-            except ValueError:
-                print("Please enter a valid integer Player ID.")
+        # Get player name
+        player_name = input("\nEnter Player Name: ")
         
-        # Check if performance record already exists
-        cur.execute("""
-            SELECT * FROM PlayerMatchPerformance 
-            WHERE PlayerID = %s AND MatchID = %s
-        """, (player_id, match_id))
-        
-        if cur.fetchone():
-            print("Performance record already exists for this player in this match.")
+        # Get player ID from name
+        cur.execute("SELECT PlayerID FROM Players WHERE PlayerName = %s", (player_name,))
+        player_result = cur.fetchone()
+        if not player_result:
+            print("Player not found.")
             return
+        player_id = player_result['PlayerID']
         
         # Get performance details
-        # Pass accuracy validation (0-100%)
-        while True:
-            try:
-                pass_accuracy = float(input("Enter Pass Accuracy (0-100): "))
-                if 0 <= pass_accuracy <= 100:
-                    break
-                print("Pass accuracy must be between 0 and 100.")
-            except ValueError:
-                print("Please enter a valid number for pass accuracy.")
+        pass_accuracy = float(input("Enter Pass Accuracy (0-100): "))
+        distance_covered = float(input("Enter Distance Covered (in km): "))
+        minutes_played = int(input("Enter Minutes Played (0-120): "))
+        goals = int(input("Enter Goals Scored: "))
+        assists = int(input("Enter Assists: "))
+        rating = float(input("Enter Match Rating (0-10): "))
         
-        # Distance covered validation
-        while True:
-            try:
-                distance_covered = float(input("Enter Distance Covered (in km): "))
-                if distance_covered >= 0:
-                    break
-                print("Distance cannot be negative.")
-            except ValueError:
-                print("Please enter a valid number for distance covered.")
-        
-        # Minutes played validation
-        while True:
-            try:
-                minutes_played = int(input("Enter Minutes Played (0-120): "))
-                if 0 <= minutes_played <= 120:
-                    break
-                print("Minutes played must be between 0 and 120.")
-            except ValueError:
-                print("Please enter a valid integer for minutes played.")
-        
-        # Goals validation
-        while True:
-            try:
-                goals = int(input("Enter Goals Scored: "))
-                if goals >= 0:
-                    break
-                print("Goals cannot be negative.")
-            except ValueError:
-                print("Please enter a valid integer for goals.")
-        
-        # Assists validation
-        while True:
-            try:
-                assists = int(input("Enter Assists: "))
-                if assists >= 0:
-                    break
-                print("Assists cannot be negative.")
-            except ValueError:
-                print("Please enter a valid integer for assists.")
-        
-        # Rating validation (0-10)
-        while True:
-            try:
-                rating = float(input("Enter Match Rating (0-10): "))
-                if 0 <= rating <= 10:
-                    break
-                print("Rating must be between 0 and 10.")
-            except ValueError:
-                print("Please enter a valid number for rating.")
-        
-        # SQL query to insert performance record
+        # Insert performance record
         query = """
         INSERT INTO PlayerMatchPerformance 
         (PlayerID, MatchID, PassAccuracy, DistanceCovered, MinutesPlayed, 
@@ -147,7 +54,6 @@ def addRecord(con, cur):
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         
-        # Execute the query
         cur.execute(query, (player_id, match_id, pass_accuracy, distance_covered,
                           minutes_played, goals, assists, rating))
         con.commit()
@@ -166,47 +72,22 @@ def deleteRecord(con, cur):
     Delete a player match performance record
     """
     try:
-        # Show recent performance records
-        print("Recent Performance Records:")
+        player_name = input("\nEnter Player Name: ")
+        match_id = int(input("Enter Match ID: "))
+        
+        # Get player ID from name
+        cur.execute("SELECT PlayerID FROM Players WHERE PlayerName = %s", (player_name,))
+        player_result = cur.fetchone()
+        if not player_result:
+            print("Player not found.")
+            return
+        player_id = player_result['PlayerID']
+        
+        # Delete the record
         cur.execute("""
-            SELECT pmp.PlayerID, pmp.MatchID, 
-                   p.PlayerName, m.Date,
-                   h.ClubName as HomeTeam,
-                   a.ClubName as AwayTeam,
-                   pmp.Goals, pmp.Assists, pmp.Ratings
-            FROM PlayerMatchPerformance pmp
-            JOIN Players p ON pmp.PlayerID = p.PlayerID
-            JOIN MatchX m ON pmp.MatchID = m.MatchID
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            ORDER BY m.Date DESC
-            LIMIT 20
-        """)
-        performances = cur.fetchall()
-        
-        for perf in performances:
-            print(f"\nPlayer: {perf['PlayerName']}")
-            print(f"Match: {perf['HomeTeam']} vs {perf['AwayTeam']} ({perf['Date']})")
-            print(f"Stats: {perf['Goals']} goals, {perf['Assists']} assists, Rating: {perf['Ratings']}")
-            print(f"Player ID: {perf['PlayerID']}, Match ID: {perf['MatchID']}")
-        
-        # Get player and match IDs
-        while True:
-            try:
-                player_id = int(input("\nEnter Player ID: "))
-                match_id = int(input("Enter Match ID: "))
-                break
-            except ValueError:
-                print("Please enter valid integer IDs.")
-        
-        # SQL query to delete performance record
-        query = """
-        DELETE FROM PlayerMatchPerformance 
-        WHERE PlayerID = %s AND MatchID = %s
-        """
-        
-        # Execute the query
-        cur.execute(query, (player_id, match_id))
+            DELETE FROM PlayerMatchPerformance 
+            WHERE PlayerID = %s AND MatchID = %s
+        """, (player_id, match_id))
         
         if cur.rowcount > 0:
             con.commit()
@@ -226,45 +107,25 @@ def updateRecord(con, cur):
     Update a player match performance record
     """
     try:
-        # Show recent performance records
-        print("Recent Performance Records:")
+        player_name = input("\nEnter Player Name: ")
+        match_id = int(input("Enter Match ID: "))
+        
+        # Get player ID from name
+        cur.execute("SELECT PlayerID FROM Players WHERE PlayerName = %s", (player_name,))
+        player_result = cur.fetchone()
+        if not player_result:
+            print("Player not found.")
+            return
+        player_id = player_result['PlayerID']
+        
+        # Verify record exists
         cur.execute("""
-            SELECT pmp.*, p.PlayerName, m.Date,
-                   h.ClubName as HomeTeam,
-                   a.ClubName as AwayTeam
-            FROM PlayerMatchPerformance pmp
-            JOIN Players p ON pmp.PlayerID = p.PlayerID
-            JOIN MatchX m ON pmp.MatchID = m.MatchID
-            JOIN Clubs h ON m.HomeTeamID = h.ClubID
-            JOIN Clubs a ON m.AwayTeamID = a.ClubID
-            ORDER BY m.Date DESC
-            LIMIT 20
-        """)
-        performances = cur.fetchall()
-        
-        for perf in performances:
-            print(f"\nPlayer: {perf['PlayerName']}")
-            print(f"Match: {perf['HomeTeam']} vs {perf['AwayTeam']} ({perf['Date']})")
-            print(f"Stats: {perf['Goals']} goals, {perf['Assists']} assists")
-            print(f"Pass Accuracy: {perf['PassAccuracy']}%, Distance: {perf['DistanceCovered']}km")
-            print(f"Minutes: {perf['MinutesPlayed']}, Rating: {perf['Ratings']}")
-            print(f"Player ID: {perf['PlayerID']}, Match ID: {perf['MatchID']}")
-        
-        # Get player and match IDs
-        while True:
-            try:
-                player_id = int(input("\nEnter Player ID: "))
-                match_id = int(input("Enter Match ID: "))
-                # Verify record exists
-                cur.execute("""
-                    SELECT * FROM PlayerMatchPerformance 
-                    WHERE PlayerID = %s AND MatchID = %s
-                """, (player_id, match_id))
-                if cur.fetchone():
-                    break
-                print("No performance record found for this player and match.")
-            except ValueError:
-                print("Please enter valid integer IDs.")
+            SELECT * FROM PlayerMatchPerformance 
+            WHERE PlayerID = %s AND MatchID = %s
+        """, (player_id, match_id))
+        if not cur.fetchone():
+            print("No performance record found for this player and match.")
+            return
         
         # Get updated values (allow skipping)
         print("\nPress Enter to keep current values:")
@@ -273,70 +134,52 @@ def updateRecord(con, cur):
         pass_accuracy = input("Enter new Pass Accuracy (0-100): ")
         if pass_accuracy:
             pass_accuracy = float(pass_accuracy)
-            if not (0 <= pass_accuracy <= 100):
-                print("Invalid pass accuracy. Value not updated.")
-                pass_accuracy = None
         
         # Distance covered update
         distance_covered = input("Enter new Distance Covered (km): ")
         if distance_covered:
             distance_covered = float(distance_covered)
-            if distance_covered < 0:
-                print("Invalid distance. Value not updated.")
-                distance_covered = None
         
         # Minutes played update
         minutes_played = input("Enter new Minutes Played (0-120): ")
         if minutes_played:
             minutes_played = int(minutes_played)
-            if not (0 <= minutes_played <= 120):
-                print("Invalid minutes played. Value not updated.")
-                minutes_played = None
         
         # Goals update
         goals = input("Enter new Goals Scored: ")
         if goals:
             goals = int(goals)
-            if goals < 0:
-                print("Invalid goals. Value not updated.")
-                goals = None
         
         # Assists update
         assists = input("Enter new Assists: ")
         if assists:
             assists = int(assists)
-            if assists < 0:
-                print("Invalid assists. Value not updated.")
-                assists = None
         
         # Rating update
         rating = input("Enter new Match Rating (0-10): ")
         if rating:
             rating = float(rating)
-            if not (0 <= rating <= 10):
-                print("Invalid rating. Value not updated.")
-                rating = None
         
         # Prepare update query dynamically
         update_fields = []
         params = []
         
-        if pass_accuracy is not None:
+        if pass_accuracy:
             update_fields.append("PassAccuracy = %s")
             params.append(pass_accuracy)
-        if distance_covered is not None:
+        if distance_covered:
             update_fields.append("DistanceCovered = %s")
             params.append(distance_covered)
-        if minutes_played is not None:
+        if minutes_played:
             update_fields.append("MinutesPlayed = %s")
             params.append(minutes_played)
-        if goals is not None:
+        if goals:
             update_fields.append("Goals = %s")
             params.append(goals)
-        if assists is not None:
+        if assists:
             update_fields.append("Assists = %s")
             params.append(assists)
-        if rating is not None:
+        if rating:
             update_fields.append("Ratings = %s")
             params.append(rating)
         
