@@ -4,43 +4,40 @@ from datetime import datetime, date, timedelta
 
 def addRecord(con, cur):
     """
-    Add a new injury record
+    Add a new injury record using player name
     """
     try:
-        # Show available players with their current injury status
-        print("Players and Their Current Injuries:")
+        player_name = input("\nEnter Player Name: ")
+        
+        # Find player ID from name
         cur.execute("""
-            SELECT p.PlayerID, p.PlayerName, c.ClubName,
-                   MAX(i.InjuryDate) as LastInjury,
-                   COUNT(i.InjuryID) as TotalInjuries
-            FROM Players p
-            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
-            LEFT JOIN InjuryRecord i ON p.PlayerID = i.PlayerID
-            GROUP BY p.PlayerID, p.PlayerName, c.ClubName
-            ORDER BY p.PlayerName
-        """)
+            SELECT PlayerID, PlayerName, ClubName 
+            FROM Players p 
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID 
+            WHERE PlayerName LIKE %s
+        """, (f"%{player_name}%",))
         players = cur.fetchall()
         
-        for player in players:
-            club = player['ClubName'] if player['ClubName'] else 'No Club'
-            last_injury = player['LastInjury'] if player['LastInjury'] else 'No injuries'
-            print(f"\nID: {player['PlayerID']}, Name: {player['PlayerName']}")
-            print(f"Club: {club}")
-            print(f"Last Injury: {last_injury}")
-            print(f"Total Injuries: {player['TotalInjuries']}")
-        
-        # Get player ID
-        while True:
-            try:
-                player_id = int(input("\nEnter Player ID: "))
-                # Verify player exists
-                cur.execute("SELECT PlayerID FROM Players WHERE PlayerID = %s", (player_id,))
-                if cur.fetchone():
-                    break
-                print("Invalid Player ID.")
-            except ValueError:
-                print("Please enter a valid integer Player ID.")
-        
+        if not players:
+            print("No player found with that name.")
+            return
+        elif len(players) > 1:
+            print("\nMultiple players found:")
+            for idx, player in enumerate(players, 1):
+                club = player['ClubName'] if player['ClubName'] else 'No Club'
+                print(f"{idx}. {player['PlayerName']} ({club})")
+            while True:
+                try:
+                    choice = int(input("Select player number: ")) - 1
+                    if 0 <= choice < len(players):
+                        player_id = players[choice]['PlayerID']
+                        break
+                    print("Invalid selection.")
+                except ValueError:
+                    print("Please enter a valid number.")
+        else:
+            player_id = players[0]['PlayerID']
+
         # Injury date validation
         while True:
             injury_date = input("Enter Injury Date (YYYY-MM-DD): ")
@@ -52,21 +49,16 @@ def addRecord(con, cur):
                 break
             except ValueError:
                 print("Please enter a valid date in YYYY-MM-DD format.")
-        
-        # Show standard severity levels
-        print("\nStandard Severity Levels:")
-        severities = ["Minor", "Moderate", "Severe", "Critical"]
-        for sev in severities:
-            print(sev)
-        
+
         # Get severity
+        severities = ["Mild", "Moderate", "Severe"]
         while True:
-            severity = input("\nEnter Injury Severity: ").capitalize()
+            severity = input("Enter Injury Severity (Minor/Moderate/Severe/Critical): ").capitalize()
             if severity in severities:
                 break
             print("Please enter a valid severity level.")
-        
-        # Recurrence rate validation (0-100%)
+
+        # Recurrence rate validation
         while True:
             try:
                 recurrence_rate = float(input("Enter Recurrence Rate (0-100): "))
@@ -74,8 +66,8 @@ def addRecord(con, cur):
                     break
                 print("Recurrence rate must be between 0 and 100.")
             except ValueError:
-                print("Please enter a valid number for recurrence rate.")
-        
+                print("Please enter a valid number.")
+
         # Check recovery prediction
         cur.execute("""
             SELECT DaysToRecovery 
@@ -87,213 +79,163 @@ def addRecord(con, cur):
         if recovery:
             predicted_recovery = injury_date_obj + timedelta(days=recovery['DaysToRecovery'])
             print(f"\nPredicted Recovery Date: {predicted_recovery}")
-        
-        # SQL query to insert injury record
-        query = """
-        INSERT INTO InjuryRecord 
-        (PlayerID, InjuryDate, Severity, RecurrenceRate) 
-        VALUES (%s, %s, %s, %s)
-        """
-        
-        # Execute the query
-        cur.execute(query, (player_id, injury_date, severity, recurrence_rate))
+
+        # Insert injury record
+        cur.execute("""
+            INSERT INTO InjuryRecord 
+            (PlayerID, InjuryDate, Severity, RecurrenceRate) 
+            VALUES (%s, %s, %s, %s)
+        """, (player_id, injury_date, severity, recurrence_rate))
         con.commit()
         
         print("Injury record added successfully!")
-    
+
     except pymysql.Error as e:
         con.rollback()
-        print(f"Error adding injury record: {e}")
+        print(f"Database error: {e}")
     except Exception as e:
         con.rollback()
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
 
 def deleteRecord(con, cur):
     """
-    Delete an injury record
+    Delete an injury record using player name
     """
     try:
-        # Show current injury records
-        print("Current Injury Records:")
+        player_name = input("\nEnter Player Name: ")
+        
+        # Show injuries for specific player
         cur.execute("""
-            SELECT i.InjuryID, p.PlayerName, i.InjuryDate, 
-                   i.Severity, i.RecurrenceRate
+            SELECT i.InjuryID, p.PlayerName, i.InjuryDate, i.Severity, c.ClubName
             FROM InjuryRecord i
             JOIN Players p ON i.PlayerID = p.PlayerID
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE p.PlayerName LIKE %s
             ORDER BY i.InjuryDate DESC
-        """)
+        """, (f"%{player_name}%",))
+        
         injuries = cur.fetchall()
+        if not injuries:
+            print("No injuries found for this player.")
+            return
+            
+        print("\nInjuries found:")
+        for idx, injury in enumerate(injuries, 1):
+            club = injury['ClubName'] if injury['ClubName'] else 'No Club'
+            print(f"{idx}. Date: {injury['InjuryDate']}, Severity: {injury['Severity']}, Club: {club}")
         
-        for injury in injuries:
-            print(f"\nID: {injury['InjuryID']}")
-            print(f"Player: {injury['PlayerName']}")
-            print(f"Date: {injury['InjuryDate']}")
-            print(f"Severity: {injury['Severity']}")
-            print(f"Recurrence Rate: {injury['RecurrenceRate']}%")
-        
-        # Get injury ID to delete
         while True:
             try:
-                injury_id = int(input("\nEnter Injury ID to delete: "))
-                break
+                choice = int(input("\nSelect injury number to delete: ")) - 1
+                if 0 <= choice < len(injuries):
+                    injury_id = injuries[choice]['InjuryID']
+                    break
+                print("Invalid selection.")
             except ValueError:
-                print("Please enter a valid integer Injury ID.")
-        
-        # SQL query to delete injury record
-        query = "DELETE FROM InjuryRecord WHERE InjuryID = %s"
-        
-        # Execute the query
-        cur.execute(query, (injury_id,))
-        
-        if cur.rowcount > 0:
-            con.commit()
-            print(f"Injury record with ID {injury_id} deleted successfully!")
-        else:
-            print(f"No injury record found with ID {injury_id}")
-    
+                print("Please enter a valid number.")
+
+        # Delete the selected injury
+        cur.execute("DELETE FROM InjuryRecord WHERE InjuryID = %s", (injury_id,))
+        con.commit()
+        print("Injury record deleted successfully!")
+
     except pymysql.Error as e:
         con.rollback()
-        print(f"Error deleting injury record: {e}")
+        print(f"Database error: {e}")
     except Exception as e:
         con.rollback()
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
 
 def updateRecord(con, cur):
     """
-    Update an injury record
+    Update an injury record using player name
     """
     try:
-        # Show current injury records
-        print("Current Injury Records:")
+        player_name = input("\nEnter Player Name: ")
+        
+        # Show injuries for specific player
         cur.execute("""
-            SELECT i.InjuryID, p.PlayerName, i.InjuryDate, 
-                   i.Severity, i.RecurrenceRate
+            SELECT i.*, p.PlayerName, c.ClubName
             FROM InjuryRecord i
             JOIN Players p ON i.PlayerID = p.PlayerID
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE p.PlayerName LIKE %s
             ORDER BY i.InjuryDate DESC
-        """)
+        """, (f"%{player_name}%",))
+        
         injuries = cur.fetchall()
-        
-        for injury in injuries:
-            print(f"\nID: {injury['InjuryID']}")
-            print(f"Player: {injury['PlayerName']}")
-            print(f"Date: {injury['InjuryDate']}")
-            print(f"Severity: {injury['Severity']}")
-            print(f"Recurrence Rate: {injury['RecurrenceRate']}%")
-        
-        # Get injury ID to update
+        if not injuries:
+            print("No injuries found for this player.")
+            return
+
+        print("\nInjuries found:")
+        for idx, injury in enumerate(injuries, 1):
+            club = injury['ClubName'] if injury['ClubName'] else 'No Club'
+            print(f"{idx}. Date: {injury['InjuryDate']}, Severity: {injury['Severity']}, Club: {club}")
+
         while True:
             try:
-                injury_id = int(input("\nEnter Injury ID to update: "))
-                # Verify injury record exists
-                cur.execute("SELECT * FROM InjuryRecord WHERE InjuryID = %s", (injury_id,))
-                if cur.fetchone():
+                choice = int(input("\nSelect injury number to update: ")) - 1
+                if 0 <= choice < len(injuries):
+                    current = injuries[choice]
                     break
-                print("No injury record found with this ID.")
+                print("Invalid selection.")
             except ValueError:
-                print("Please enter a valid integer Injury ID.")
+                print("Please enter a valid number.")
+
+        print("\nPress Enter to keep current values:")
         
-        # Get current record details
-        cur.execute("""
-            SELECT i.*, p.PlayerName 
-            FROM InjuryRecord i
-            JOIN Players p ON i.PlayerID = p.PlayerID
-            WHERE i.InjuryID = %s
-        """, (injury_id,))
-        current = cur.fetchone()
-        
-        print(f"\nUpdating injury record for {current['PlayerName']}")
-        print("Press Enter to keep current values:")
-        
-        # Injury date update
+        # Update fields
         injury_date = input(f"Enter new Injury Date (current: {current['InjuryDate']}, YYYY-MM-DD): ")
-        if injury_date:
-            try:
-                injury_date_obj = datetime.strptime(injury_date, '%Y-%m-%d').date()
-                if injury_date_obj > date.today():
-                    print("Injury date cannot be in the future. Value not updated.")
-                    injury_date = None
-            except ValueError:
-                print("Invalid date format. Value not updated.")
-                injury_date = None
-        
-        # Show standard severity levels
-        print("\nStandard Severity Levels:")
-        severities = ["Minor", "Moderate", "Severe", "Critical"]
-        for sev in severities:
-            print(sev)
-        
-        # Severity update
-        severity = input(f"Enter new Severity (current: {current['Severity']}): ").capitalize()
-        if severity and severity not in severities:
-            print("Invalid severity level. Value not updated.")
-            severity = None
-        
-        # Recurrence rate update
+        severity = input(f"Enter new Severity (current: {current['Severity']}, Minor/Moderate/Severe/Critical): ").capitalize()
         recurrence_rate = input(f"Enter new Recurrence Rate (current: {current['RecurrenceRate']}%): ")
-        if recurrence_rate:
-            try:
-                recurrence_rate = float(recurrence_rate)
-                if not (0 <= recurrence_rate <= 100):
-                    print("Recurrence rate must be between 0 and 100. Value not updated.")
-                    recurrence_rate = None
-            except ValueError:
-                print("Invalid recurrence rate. Value not updated.")
-                recurrence_rate = None
-        
-        # Prepare update query dynamically
+
+        # Validate and prepare updates
         update_fields = []
         params = []
         
         if injury_date:
-            update_fields.append("InjuryDate = %s")
-            params.append(injury_date)
+            try:
+                injury_date_obj = datetime.strptime(injury_date, '%Y-%m-%d').date()
+                if injury_date_obj <= date.today():
+                    update_fields.append("InjuryDate = %s")
+                    params.append(injury_date)
+            except ValueError:
+                print("Invalid date format. Field not updated.")
+
         if severity:
-            update_fields.append("Severity = %s")
-            params.append(severity)
-        if recurrence_rate is not None:
-            update_fields.append("RecurrenceRate = %s")
-            params.append(recurrence_rate)
-        
+            if severity in ["Mild", "Moderate", "Severe"]:
+                update_fields.append("Severity = %s")
+                params.append(severity)
+            else:
+                print("Invalid severity level. Field not updated.")
+
+        if recurrence_rate:
+            try:
+                recurrence_rate = float(recurrence_rate)
+                if 0 <= recurrence_rate <= 100:
+                    update_fields.append("RecurrenceRate = %s")
+                    params.append(recurrence_rate)
+                else:
+                    print("Invalid recurrence rate range. Field not updated.")
+            except ValueError:
+                print("Invalid recurrence rate format. Field not updated.")
+
         if update_fields:
-            # Add injury ID to params
-            params.append(injury_id)
-            
+            params.append(current['InjuryID'])
             query = f"UPDATE InjuryRecord SET {', '.join(update_fields)} WHERE InjuryID = %s"
-            
-            # Execute the query
             cur.execute(query, params)
             con.commit()
-            
-            # Check updated recovery prediction if severity or recurrence rate changed
-            if severity or recurrence_rate is not None:
-                cur.execute("""
-                    SELECT DaysToRecovery 
-                    FROM RecoveryPrediction 
-                    WHERE Severity = %s AND RecurrenceRate = %s
-                """, (
-                    severity if severity else current['Severity'],
-                    recurrence_rate if recurrence_rate is not None else current['RecurrenceRate']
-                ))
-                recovery = cur.fetchone()
-                if recovery:
-                    injury_date_to_use = datetime.strptime(
-                        injury_date if injury_date else str(current['InjuryDate']),
-                        '%Y-%m-%d'
-                    ).date()
-                    predicted_recovery = injury_date_to_use + timedelta(days=recovery['DaysToRecovery'])
-                    print(f"\nUpdated Predicted Recovery Date: {predicted_recovery}")
-            
             print("Injury record updated successfully!")
         else:
-            print("No updates specified.")
-    
+            print("No valid updates provided.")
+
     except pymysql.Error as e:
         con.rollback()
-        print(f"Error updating injury record: {e}")
+        print(f"Database error: {e}")
     except Exception as e:
         con.rollback()
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
 
 def retrieveRecord(con, cur):
     """
@@ -309,7 +251,7 @@ def retrieveRecord(con, cur):
             
             if filter_choice == 'Y':
                 print("\nStandard Severity Levels:")
-                severities = ["Minor", "Moderate", "Severe", "Critical"]
+                severities = ["Mild", "Moderate", "Severe"]
                 for sev in severities:
                     print(sev)
                 

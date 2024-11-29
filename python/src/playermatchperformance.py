@@ -218,8 +218,9 @@ def retrieveRecord(con, cur):
         print("1. Player")
         print("2. Match")
         print("3. Top Performances")
+        print("4. Player Performance History")
         
-        choice = input("Enter choice (1-3): ")
+        choice = input("Enter choice (1-4): ")
         
         if choice == '1':
             # Show players
@@ -290,6 +291,45 @@ def retrieveRecord(con, cur):
             LIMIT 10
             """
             cur.execute(query)
+        elif choice == '4':
+            import numpy as np
+            from scipy.stats import linregress
+            from datetime import datetime
+
+            # Ask for player ID
+            player_id = int(input("Enter Player ID to calculate development: "))
+
+            # Retrieve all ratings of the specified player
+            query = """
+            SELECT pmp.Ratings, m.Date
+            FROM PlayerMatchPerformance pmp
+            JOIN MatchX m ON pmp.MatchID = m.MatchID
+            WHERE pmp.PlayerID = %s
+            ORDER BY m.Date
+            """
+            cur.execute(query, (player_id,))
+            results = cur.fetchall()
+
+            if not results:
+                print("No performance records found for the specified player.")
+            else:
+                # Extract dates and ratings
+                dates = [result['Date'] for result in results]
+                ratings = [result['Rating'] for result in results]
+
+                # Convert dates to ordinal format for linear fitting
+                dates_ordinal = [datetime.strptime(date, '%Y-%m-%d').toordinal() for date in dates]
+
+                # Perform linear fitting
+                slope, intercept, r_value, p_value, std_err = linregress(dates_ordinal, ratings)
+
+                # Display the results
+                print(f"Player development (linear fitting):")
+                print(f"Slope (rate of change): {slope}")
+                print(f"Intercept: {intercept}")
+                print(f"R-squared: {r_value**2}")
+                print(f"P-value: {p_value}")
+                print(f"Standard error: {std_err}")    
         
         else:
             print("Invalid choice.")
