@@ -301,7 +301,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve by player or all records
-        choice = input("Retrieve injuries for (A)ll players or (S)pecific player? ").upper()
+        choice = input("Retrieve injuries for (A)ll players or (S)pecific player or specific (C)lub's players").upper()
         
         if choice == 'A':
             # Option to filter by severity
@@ -342,7 +342,7 @@ def retrieveRecord(con, cur):
                 ORDER BY i.InjuryDate DESC
                 """
                 cur.execute(query)
-        else:
+        elif choice == 'S':
             # Get specific player ID
             player_id = int(input("Enter Player ID: "))
             query = """
@@ -359,6 +359,25 @@ def retrieveRecord(con, cur):
             ORDER BY i.InjuryDate DESC
             """
             cur.execute(query, (player_id,))
+        elif choice == 'C':
+            # Take club name as input
+            club_name = input("Enter Club Name to retrieve injured players: ")
+
+            # Retrieve all injured players with related information for the specified club
+            query = """
+            SELECT i.*, p.PlayerName, c.ClubName,
+                DATEDIFF(CURDATE(), i.InjuryDate) as DaysSinceInjury,
+                rp.DaysToRecovery
+            FROM InjuryRecord i
+            JOIN Players p ON i.PlayerID = p.PlayerID
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            LEFT JOIN RecoveryPrediction rp 
+                ON i.Severity = rp.Severity 
+                AND i.RecurrenceRate = rp.RecurrenceRate
+            WHERE c.ClubName LIKE %s
+            ORDER BY i.InjuryDate DESC
+            """
+            cur.execute(query, ('%' + club_name + '%',))
         
         # Fetch and display results
         results = cur.fetchall()
