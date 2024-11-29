@@ -204,7 +204,7 @@ def retrieveRecord(con, cur):
             
             query = f"""
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   l.LeagueName, p.Experience
+                   l.LeagueName
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
@@ -218,7 +218,7 @@ def retrieveRecord(con, cur):
             player_name = input("Enter Player Name (or part of name): ")
             query = """
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   l.LeagueName, p.Experience
+                   l.LeagueName
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
@@ -232,7 +232,7 @@ def retrieveRecord(con, cur):
             club_name = input("\nEnter Club Name: ")
             query = """
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   l.LeagueName, p.Experience
+                   l.LeagueName
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
@@ -253,7 +253,7 @@ def retrieveRecord(con, cur):
             league_name = input("\nEnter League Name: ")
             query = """
             SELECT c.*, p.PlayerName, p.OverallRating, cl.ClubName,
-                   l.LeagueName, p.Experience
+                   l.LeagueName
             FROM Captain c
             JOIN Players p ON c.PlayerID = p.PlayerID
             LEFT JOIN Clubs cl ON p.ClubID = cl.ClubID
@@ -275,7 +275,6 @@ def retrieveRecord(con, cur):
                 print(f"Club: {captain['ClubName'] if captain['ClubName'] else 'No Club'}")
                 print(f"League: {captain['LeagueName'] if captain['LeagueName'] else 'No League'}")
                 print(f"Overall Rating: {captain['OverallRating']}")
-                print(f"Experience: {captain['Experience']} years")
                 print(f"Winning Rate: {captain['CaptainWinningRate']}%")
                 print(f"Captain Bonus: ${captain['CaptainBonus']:,.2f}")
                 print("---")
