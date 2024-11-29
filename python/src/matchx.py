@@ -346,6 +346,7 @@ def retrieveRecord(con, cur):
         print("3. Based on League name and Year")
         print("4. Based on Both (Club and League)")
         print("5. Based on Date")
+        print("6. Average match attendance by club")
         
         while True:
             try:
@@ -416,7 +417,7 @@ def retrieveRecord(con, cur):
             """
             cur.execute(query, (club_name, club_name, league_name, league_year))
 
-        else:
+        elif choice == 5:
             # Based on Date
             while True:
                 match_date = input("Enter Match Date (YYYY-MM-DD): ")
@@ -428,7 +429,19 @@ def retrieveRecord(con, cur):
             
             query = base_query + " WHERE m.Date = %s ORDER BY m.Date DESC"
             cur.execute(query, (match_date,))
-
+        elif choice == 6:
+            # Retrieve average match attendance
+            query = """
+            SELECT AVG(m.noofattendees) as AverageAttendance
+            FROM MatchX m
+            """
+            cur.execute(query)
+            results = cur.fetchall()
+            if not results or results[0]['AverageAttendance'] is None:
+                print("No records found or no attendance data available.")
+            else:
+                print(f"Average Match Attendance: {results[0]['AverageAttendance']:.2f}")
+            return
         # Fetch and display results
         results = cur.fetchall()
         
