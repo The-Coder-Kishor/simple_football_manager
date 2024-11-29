@@ -294,7 +294,7 @@ def retrieveRecord(con, cur):
     """
     try:
         # Option to retrieve all or specific youth player
-        choice = input("Retrieve (A)ll youth players or (S)pecific player? ").upper()
+        choice = input("Retrieve (A)ll youth players or (S)pecific player or Specific (C)lub wise? ").upper()
         
         if choice == 'A':
             # Option to filter by youth level
@@ -324,7 +324,7 @@ def retrieveRecord(con, cur):
                 ORDER BY p.PlayerName
                 """
                 cur.execute(query)
-        else:
+        elif choice == 'S':
             # Get specific player ID
             player_id = int(input("Enter Player ID: "))
             query = """
@@ -337,6 +337,19 @@ def retrieveRecord(con, cur):
             WHERE y.PlayerID = %s
             """
             cur.execute(query, (player_id,))
+        elif choice == 'C':
+            club_name = input("Enter Club Name to retrieve youth players: ")
+            query = """
+            SELECT y.*, p.PlayerName, p.BirthDate, c.ClubName,
+                   TIMESTAMPDIFF(YEAR, p.BirthDate, CURDATE()) as Age,
+                   DATEDIFF(y.ExpectedGraduation, CURDATE()) as DaysToGraduation
+            FROM YouthPlayer y
+            JOIN Players p ON y.PlayerID = p.PlayerID
+            LEFT JOIN Clubs c ON p.ClubID = c.ClubID
+            WHERE c.ClubName LIKE %s
+            ORDER BY p.PlayerName
+            """
+            cur.execute(query, ('%' + club_name + '%',))
         
         # Fetch and display results
         results = cur.fetchall()
