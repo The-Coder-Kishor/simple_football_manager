@@ -131,7 +131,7 @@ def deleteRecord(con, cur):
                 print("Please enter a valid integer Club ID.")
         
         # SQL query to delete club
-        query = "DELETE FROM Clubs WHERE ClubID = %s"
+        query = "DELETE FROM Clubs WHERE ClubID = %s "
         
         # Execute the query
         cur.execute(query, (club_id,))
